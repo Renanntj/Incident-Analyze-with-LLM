@@ -1,0 +1,95 @@
+# ==============================
+# Python
+# ==============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+pip-wheel-metadata/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# ==============================
+# Environment variables / Secrets
+# ==============================
+.env
+.env.*
+!.env.example
+
+# ==============================
+# Logs
+# ==============================
+*.log
+logs/
+
+# ==============================
+# Pytest / Coverage
+# ==============================
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ==============================
+# FastAPI / Uvicorn
+# ==============================
+*.pid
+
+# ==============================
+# Alembic / Migrations
+# ==============================
+alembic/versions/*.pyc
+alembic/versions/__pycache__/
+
+# ==============================
+# Databases / Local storage
+# ==============================
+*.sqlite3
+*.db
+
+# ==============================
+# Docker
+# ==============================
+.dockerignore
+docker-compose.override.yml
+
+# ==============================
+# OS
+# ==============================
+.DS_Store
+Thumbs.db
+
+# ==============================
+# IDEs / Editors
+# ==============================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# ==============================
+# Jupyter / Experiments
+# ==============================
+.ipynb_checkpoints/
+
+# ==============================
+# Node (caso use frontend depois)
+# ==============================
+node_modules/
+
+# ==============================
+# Temporary / Misc
+# ==============================
+.cache/
+.mypy_cache/
+.ruff_cache/
