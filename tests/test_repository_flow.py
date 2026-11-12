@@ -8,14 +8,14 @@ from app.repository_tool import parse_repository, select_files, redact, GitHubCl
 from app.main import app, service
 
 
-def test_env_file_loads_without_overriding_process_variables(tmp_path, monkeypatch):
+def test_env_file_takes_precedence_over_stale_process_variables(tmp_path, monkeypatch):
     from app.environment import load_environment
     env_file = tmp_path / '.env'
     env_file.write_text('GEMINI_MODEL=model-from-file\nGITHUB_TOKEN=token-from-file\n')
     monkeypatch.setenv('GEMINI_MODEL', 'model-from-process')
     monkeypatch.delenv('GITHUB_TOKEN', raising=False)
     assert load_environment(env_file) is True
-    assert os.environ['GEMINI_MODEL'] == 'model-from-process'
+    assert os.environ['GEMINI_MODEL'] == 'model-from-file'
     assert os.environ['GITHUB_TOKEN'] == 'token-from-file'
 
 
@@ -39,7 +39,7 @@ class FakeLLM:
     async def complete(self, prompt, schema):
         self.prompts.append(prompt)
         if schema is Findings:
-            return Findings(purpose='API de exemplo', claims=[{'text': 'Possui rota HTTP', 'kind': 'observed', 'path': 'main.py', 'line': 1}])
+            return Findings(purpose='API de exemplo', claims=[{'text': 'Possui rota HTTP', 'kind': 'observed', 'path': 'main.py', 'line': 1}], uncertainties=[])
         return PostOutput(text='Ao explorar este projeto, encontrei uma rota HTTP. Conheça https://github.com/acme/demo')
 
 

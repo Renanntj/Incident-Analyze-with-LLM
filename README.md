@@ -8,6 +8,8 @@ A API valida URLs `https://github.com/owner/repository`, aceita `.git` e barra f
 
 O Gemini recebe grupos de arquivos limitados, com instruções para tratar todo conteúdo do repositório como dado não confiável. A resposta JSON é validada por Pydantic. As afirmações são classificadas como observadas no código, declaradas na documentação, intenção em comentários ou inferência. O serviço aceita apenas referências a arquivos coletados e linhas válidas; trechos citados também precisam existir no conteúdo coletado. Essa validação não garante que toda interpretação do modelo seja correta. Commits recentes são apresentados separadamente, sem servir de prova isolada de funcionalidade.
 
+A requisição ao Gemini usa saída JSON estruturada com o schema de análise ou de post. Falhas de chave, permissão, modelo, cota, timeout e formato de resposta são identificadas separadamente e exibidas na interface. Erros permanentes não são repetidos; falhas transitórias têm até três tentativas com espera progressiva limitada. Um `Retry-After` maior que o limite de espera local encerra a tentativa sem repetir cedo demais. Os logs registram apenas categoria e status HTTP, sem chave, prompt ou resposta completa.
+
 A geração do post usa apenas afirmações observadas ou documentadas, aceita tom, tamanho, hashtags e contexto autoral opcional. Sem `confirmed_author=true`, o prompt proíbe afirmar que a pessoa desenvolveu o projeto. A resposta é rejeitada se ultrapassar o limite de caracteres ou omitir a URL. Não há publicação automática.
 
 O frontend em `frontend/` usa HTML, CSS e JavaScript sem processo de build. O próprio FastAPI o serve na raiz `/`; as requisições do navegador usam caminhos relativos para a **API local**, na mesma origem. A interface mostra as evidências, a cobertura e os avisos, além de oferecer um botão para copiar o texto. Ela não envia dados diretamente ao GitHub, ao Gemini ou ao LinkedIn: o backend local faz as chamadas externas necessárias à análise e à geração.
@@ -26,11 +28,11 @@ No fish, use `source .venv/bin/activate.fish`. As dependências e faixas de vers
 
 ## Configuração
 
-Copie `.env.example` para `.env` e configure as variáveis. Ao iniciar, a aplicação carrega automaticamente o arquivo `.env` da raiz do projeto. Variáveis já definidas no processo têm prioridade. Você também pode configurá-las diretamente no bash:
+Copie `.env.example` para `.env` e configure as variáveis. Ao iniciar, a aplicação carrega automaticamente o arquivo `.env` da raiz do projeto. Os valores do arquivo têm prioridade sobre variáveis antigas definidas no processo. Você também pode configurá-las diretamente no bash se não usar o arquivo:
 
 ```bash
 export GEMINI_API_KEY='sua-chave'
-export GEMINI_MODEL='gemini-2.5-flash'
+export GEMINI_MODEL='gemini-3.5-flash-lite'
 export GITHUB_TOKEN='seu-token-opcional'
 ```
 
@@ -90,7 +92,7 @@ README, código, comentários e mensagens de commit são dados não confiáveis.
 python -m pytest -q
 ```
 
-Os testes padrão não usam rede nem credenciais. Eles verificam contrato e fluxo, não a qualidade factual de um LLM real. Para validar integrações reais, configure `GEMINI_API_KEY` e `GEMINI_MODEL`, inicie a API e use os exemplos acima com um repositório público pequeno. Essa chamada consome cota do GitHub e possivelmente custo do Gemini. Não foi realizada validação real com esses serviços nesta entrega.
+Os testes padrão não usam rede nem credenciais. Eles verificam contrato, tratamento de erros e fluxo, não a qualidade factual de um LLM real. Para validar o fluxo com um repositório, configure `GEMINI_API_KEY` e `GEMINI_MODEL`, inicie a API e use os exemplos acima com um repositório público pequeno. Essa chamada consome cota do GitHub e possivelmente custo do Gemini. Foi validada uma geração real mínima do schema `Findings` com o modelo configurado no `.env`; a análise completa de um repositório e o schema `PostOutput` foram verificados somente com mocks.
 
 Para conferir a sintaxe do JavaScript, use `node --check frontend/app.js` se tiver Node.js instalado. A interface não precisa de Node.js para funcionar.
 
@@ -98,4 +100,4 @@ Para conferir a sintaxe do JavaScript, use `node --check frontend/app.js` se tiv
 
 A árvore recursiva do GitHub pode ser truncada; a resposta sinaliza isso e não percorre subárvores adicionais. A seleção é heurística e pode deixar código relevante de fora. Não há cache nem paginação além do limite de uma página de commits recentes. Um 404 do GitHub pode representar repositório inexistente ou privado sem permissão. A redação de segredos é baseada em padrões e não é completa. A saída do modelo é validada estruturalmente e por referências simples, mas suas interpretações exigem revisão humana. A análise não executa testes do repositório observado nem comprova uso em produção.
 
-Documentação consultada: [árvores GitHub](https://docs.github.com/en/rest/git/trees), [referências GitHub](https://docs.github.com/en/rest/git/refs) e [Gemini generateContent](https://ai.google.dev/api/generate-content).
+Documentação consultada: [árvores GitHub](https://docs.github.com/en/rest/git/trees), [referências GitHub](https://docs.github.com/en/rest/git/refs), [Gemini generateContent](https://ai.google.dev/api/generate-content), [saídas estruturadas](https://ai.google.dev/gemini-api/docs/structured-output) e [modelos disponíveis](https://ai.google.dev/gemini-api/docs/models).

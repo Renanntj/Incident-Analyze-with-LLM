@@ -1,8 +1,12 @@
 """Bounded GitHub collection and evidence-based writing."""
 import base64
+import asyncio
 import json
+import logging
 import os
 import re
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from urllib.parse import quote, urlsplit
 
 import httpx
@@ -131,12 +135,74 @@ class Claim(BaseModel):
 
 
 class Findings(BaseModel):
-    purpose: str = ''
-    claims: list[Claim] = Field(default_factory=list)
-    uncertainties: list[str] = Field(default_factory=list)
+    purpose: str
+    claims: list[Claim]
+    uncertainties: list[str]
 
 
-class LLMError(Exception): pass
+logger = logging.getLogger(__name__)
+
+
+class LLMError(Exception):
+    def __init__(self, message: str, kind: str = 'provider', status: int = 502):
+        self.kind = kind
+        self.status = status
+        super().__init__(message)
+
+
+def gemini_schema(schema: type[BaseModel]) -> dict:
+    """OpenAPI subset accepted by generateContent.responseSchema."""
+    if schema is PostOutput:
+        return {'type': 'OBJECT', 'properties': {'text': {'type': 'STRING'}}, 'required': ['text']}
+    if schema is Findings:
+        claim = {'type': 'OBJECT', 'properties': {
+            'text': {'type': 'STRING'},
+            'kind': {'type': 'STRING', 'enum': ['observed', 'documented', 'intended', 'inferred']},
+            'category': {'type': 'STRING', 'enum': ['feature', 'technology', 'architecture', 'test', 'change', 'divergence', 'purpose']},
+            'path': {'type': 'STRING', 'nullable': True},
+            'line': {'type': 'INTEGER', 'nullable': True},
+            'excerpt': {'type': 'STRING', 'nullable': True},
+        }, 'required': ['text', 'kind']}
+        return {'type': 'OBJECT', 'properties': {
+            'purpose': {'type': 'STRING'},
+            'claims': {'type': 'ARRAY', 'items': claim},
+            'uncertainties': {'type': 'ARRAY', 'items': {'type': 'STRING'}},
+        }, 'required': ['purpose', 'claims', 'uncertainties']}
+    raise TypeError('Schema LLM não suportado')
+
+
+def retry_after_seconds(value: str | None) -> float | None:
+    if not value: return None
+    try: return max(0, float(value))
+    except ValueError:
+        try: return max(0, (parsedate_to_datetime(value) - datetime.now(timezone.utc)).total_seconds())
+        except (TypeError, ValueError, OverflowError): return None
+
+
+def gemini_http_error(response: httpx.Response) -> tuple[LLMError, bool]:
+    status = response.status_code
+    reason = ''
+    try:
+        details = response.json().get('error', {}).get('details', [])
+        reason = next((d.get('reason', '') for d in details if isinstance(d, dict) and d.get('@type', '').endswith('ErrorInfo')), '')
+    except (ValueError, AttributeError, TypeError): pass
+    if reason == 'API_KEY_INVALID' or status == 401:
+        return LLMError('Chave Gemini inválida. Confira GEMINI_API_KEY no .env.', 'authentication', 502), False
+    if status == 403:
+        return LLMError('A chave Gemini não tem permissão para este recurso.', 'permission', 502), False
+    if status == 404 or reason == 'MODEL_NOT_FOUND':
+        return LLMError('Modelo Gemini indisponível. Confira GEMINI_MODEL e o acesso da sua conta.', 'model', 502), False
+    if status == 429:
+        if reason == 'QUOTA_EXCEEDED':
+            return LLMError('Cota Gemini esgotada. Aguarde a renovação ou confira os limites da conta.', 'quota', 429), False
+        return LLMError('Limite temporário de requisições ao Gemini. Tente novamente mais tarde.', 'rate_limit', 429), True
+    if status == 402:
+        return LLMError('Créditos Gemini insuficientes.', 'quota', 402), False
+    if status in (500, 502, 503, 504):
+        return LLMError('Gemini temporariamente indisponível.', 'server', 503), True
+    if status == 400:
+        return LLMError('Requisição rejeitada pelo Gemini (HTTP 400). Confira o formato e o modelo configurado.', 'request', 502), False
+    return LLMError(f'Gemini retornou HTTP {status}.', 'http', 502), False
 
 
 class GeminiProvider:
@@ -145,18 +211,56 @@ class GeminiProvider:
 
     async def complete(self, prompt: str, schema: type[BaseModel]):
         key, model = os.getenv('GEMINI_API_KEY'), os.getenv('GEMINI_MODEL')
-        if not key or not model: raise LLMError('Configure GEMINI_API_KEY e GEMINI_MODEL')
-        if not re.fullmatch(r'[A-Za-z0-9_.-]+', model): raise LLMError('Nome de modelo inválido')
+        if not key or not model: raise LLMError('Configure GEMINI_API_KEY e GEMINI_MODEL no .env.', 'configuration', 503)
+        if not re.fullmatch(r'[A-Za-z0-9_.-]+', model): raise LLMError('Nome de modelo inválido em GEMINI_MODEL.', 'configuration', 503)
         url = f'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent'
-        body = {'contents': [{'parts': [{'text': prompt}]}], 'generationConfig': {'responseMimeType': 'application/json'}}
-        for attempt in range(2):
+        body = {'contents': [{'parts': [{'text': prompt}]}], 'generationConfig': {'responseMimeType': 'application/json', 'responseSchema': gemini_schema(schema)}}
+        for attempt in range(3):
             try:
                 response = await self.client.post(url, headers={'x-goog-api-key': key}, json=body)
-                if response.status_code >= 400: raise LLMError(f'Provedor LLM retornou HTTP {response.status_code}')
-                text = response.json()['candidates'][0]['content']['parts'][0]['text']
-                return schema.model_validate_json(text)
-            except (httpx.RequestError, KeyError, IndexError, ValidationError, ValueError, LLMError) as exc:
-                if attempt: raise LLMError('Resposta inválida ou falha do provedor LLM') from exc
+            except httpx.TimeoutException as exc:
+                error = LLMError('Tempo limite ao consultar Gemini.', 'timeout', 503)
+                logger.warning('gemini_error category=timeout')
+                if attempt == 2: raise error from exc
+                await asyncio.sleep(min(0.5 * 2 ** attempt, 4))
+                continue
+            except httpx.RequestError as exc:
+                error = LLMError('Falha de conexão com Gemini.', 'connection', 503)
+                logger.warning('gemini_error category=connection')
+                if attempt == 2: raise error from exc
+                await asyncio.sleep(min(0.5 * 2 ** attempt, 4))
+                continue
+            if response.status_code >= 400:
+                error, transient = gemini_http_error(response)
+                logger.warning('gemini_error category=%s status=%s', error.kind, response.status_code)
+                if not transient or attempt == 2: raise error
+                delay = retry_after_seconds(response.headers.get('Retry-After'))
+                delay = min(0.5 * 2 ** attempt, 4) if delay is None else delay
+                if delay > 8: raise error
+                await asyncio.sleep(delay)
+                continue
+            try: data = response.json()
+            except ValueError as exc:
+                logger.warning('gemini_error category=invalid_response_json status=200')
+                raise LLMError('Resposta HTTP do Gemini não é JSON válido.', 'invalid_response_json') from exc
+            candidates = data.get('candidates') if isinstance(data, dict) else None
+            if not isinstance(candidates, list) or not candidates:
+                logger.warning('gemini_error category=missing_candidates status=200')
+                raise LLMError('Gemini não retornou candidatos de resposta.', 'missing_candidates')
+            content = candidates[0].get('content') if isinstance(candidates[0], dict) else None
+            if not isinstance(content, dict):
+                logger.warning('gemini_error category=missing_content status=200')
+                raise LLMError('Candidato do Gemini veio sem conteúdo.', 'missing_content')
+            parts = content.get('parts')
+            if not isinstance(parts, list) or not parts or not isinstance(parts[0], dict) or not isinstance(parts[0].get('text'), str) or not parts[0]['text'].strip():
+                logger.warning('gemini_error category=missing_parts status=200')
+                raise LLMError('Conteúdo do Gemini veio sem texto.', 'missing_parts')
+            try: return schema.model_validate_json(parts[0]['text'])
+            except ValidationError as exc:
+                kind = 'invalid_json' if any(e['type'] == 'json_invalid' for e in exc.errors()) else 'schema'
+                logger.warning('gemini_error category=%s status=200', kind)
+                message = 'Gemini retornou JSON inválido.' if kind == 'invalid_json' else 'JSON do Gemini não corresponde ao schema esperado.'
+                raise LLMError(message, kind) from exc
 
 
 class PostOutput(BaseModel):
