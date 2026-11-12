@@ -1,6 +1,6 @@
 # Repository Story
 
-API em Python e FastAPI que examina um repositório GitHub e produz uma análise com referências a arquivos e um texto em português brasileiro para LinkedIn. A interface inicial é o Swagger. O projeto substitui a antiga API de classificação de incidentes; o nome do repositório remoto foi mantido.
+Ferramenta local que examina um repositório GitHub e ajuda a transformá-lo em uma apresentação para LinkedIn apoiada por referências a arquivos. Há uma interface web simples para preencher a URL, revisar a análise e copiar o texto. A API em Python e FastAPI continua acessível pelo Swagger. O projeto substitui a antiga API de classificação de incidentes; o nome do repositório remoto foi mantido.
 
 ## O que está implementado
 
@@ -9,6 +9,8 @@ A API valida URLs `https://github.com/owner/repository`, aceita `.git` e barra f
 O Gemini recebe grupos de arquivos limitados, com instruções para tratar todo conteúdo do repositório como dado não confiável. A resposta JSON é validada por Pydantic. As afirmações são classificadas como observadas no código, declaradas na documentação, intenção em comentários ou inferência. O serviço aceita apenas referências a arquivos coletados e linhas válidas; trechos citados também precisam existir no conteúdo coletado. Essa validação não garante que toda interpretação do modelo seja correta. Commits recentes são apresentados separadamente, sem servir de prova isolada de funcionalidade.
 
 A geração do post usa apenas afirmações observadas ou documentadas, aceita tom, tamanho, hashtags e contexto autoral opcional. Sem `confirmed_author=true`, o prompt proíbe afirmar que a pessoa desenvolveu o projeto. A resposta é rejeitada se ultrapassar o limite de caracteres ou omitir a URL. Não há publicação automática.
+
+O frontend em `frontend/` usa HTML, CSS e JavaScript sem processo de build. O próprio FastAPI o serve na raiz `/`; as requisições do navegador usam caminhos relativos para a **API local**, na mesma origem. A interface mostra as evidências, a cobertura e os avisos, além de oferecer um botão para copiar o texto. Ela não envia dados diretamente ao GitHub, ao Gemini ou ao LinkedIn: o backend local faz as chamadas externas necessárias à análise e à geração.
 
 ## Requisitos e instalação
 
@@ -50,7 +52,7 @@ Esses limites têm máximos impostos pelo servidor: 100 arquivos, 100000 bytes p
 uvicorn app.main:app --reload
 ```
 
-Abra `http://127.0.0.1:8000/docs`. `GET /health` retorna `{"status":"ok"}` sem consultar serviços externos.
+Abra `http://127.0.0.1:8000/` para usar a interface. O Swagger permanece em `http://127.0.0.1:8000/docs`. `GET /health` retorna `{"status":"ok"}` sem consultar serviços externos. Mantenha o backend em execução enquanto usa o frontend; não há servidor de frontend separado nem hospedagem publicada nesta etapa.
 
 ## Endpoints
 
@@ -82,13 +84,15 @@ README, código, comentários e mensagens de commit são dados não confiáveis.
 
 ## Estrutura e testes
 
-`app/repository_tool.py` contém validação de URL, coleta GitHub, seleção, redação, modelos de análise, cliente Gemini e serviço de orquestração. `app/main.py` define contratos e rotas FastAPI. `tests/test_repository_flow.py` cobre URLs, seleção, redação e fluxo HTTP com GitHub e LLM simulados.
+`app/repository_tool.py` contém validação de URL, coleta GitHub, seleção, redação, modelos de análise, cliente Gemini e serviço de orquestração. `app/main.py` define contratos e rotas FastAPI e serve o frontend. `frontend/` contém a interface estática. `tests/test_repository_flow.py` cobre URLs, seleção, redação, fluxo HTTP com GitHub e LLM simulados e entrega dos arquivos da interface.
 
 ```bash
 python -m pytest -q
 ```
 
 Os testes padrão não usam rede nem credenciais. Eles verificam contrato e fluxo, não a qualidade factual de um LLM real. Para validar integrações reais, configure `GEMINI_API_KEY` e `GEMINI_MODEL`, inicie a API e use os exemplos acima com um repositório público pequeno. Essa chamada consome cota do GitHub e possivelmente custo do Gemini. Não foi realizada validação real com esses serviços nesta entrega.
+
+Para conferir a sintaxe do JavaScript, use `node --check frontend/app.js` se tiver Node.js instalado. A interface não precisa de Node.js para funcionar.
 
 ## Limitações
 

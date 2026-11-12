@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#14252c">
+  <title>Repository Story — do código à apresentação</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Repository Story, início"><span class="brand-mark">R<span>.</span></span><span>repository<span class="brand-light">story</span></span></a>
+      <span class="header-note"><span class="status-dot"></span> Interface local</span>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <span class="eyebrow">LEITURA DE REPOSITÓRIOS · GITHUB</span>
+          <h1 id="hero-title">Seu projeto tem uma história.<br><em>Deixe o código contar.</em></h1>
+          <p>Transforme um repositório em uma análise com evidências e um texto para LinkedIn. Você revisa tudo antes de publicar.</p>
+        </div>
+        <div class="hero-aside" aria-hidden="true"><span class="aside-label">FLUXO DE TRABALHO</span><div><b>01</b> Repositório</div><div><b>02</b> Evidências</div><div><b>03</b> Texto</div></div>
+      </section>
+
+      <div class="workspace">
+        <section class="panel form-panel" aria-labelledby="form-title">
+          <div class="section-heading"><span class="section-index">01 / ENTRADA</span><h2 id="form-title">Comece pelo repositório</h2><p>Informe a URL do projeto e ajuste o texto ao seu contexto.</p></div>
+          <form id="repository-form">
+            <label for="repo-url">URL do repositório <span class="required">*</span></label>
+            <input id="repo-url" name="url" type="url" required placeholder="https://github.com/usuario/projeto" autocomplete="url" pattern="https://github\.com/[^/]+/[^/?#]+/?" aria-describedby="url-help">
+            <small id="url-help">Aceita repositórios do GitHub. Nenhum código será executado.</small>
+
+            <div class="field-grid"><div><label for="reference">Branch ou referência</label><input id="reference" name="reference" placeholder="Padrão do repositório" maxlength="200"></div><div><label for="tone">Tom do texto</label><select id="tone" name="tone"><option value="profissional">Profissional</option><option value="conversacional">Conversacional</option></select></div></div>
+            <div class="field-grid"><div><label for="length">Tamanho</label><select id="length" name="length"><option value="medio">Médio</option><option value="curto">Curto</option></select></div><div><label for="max-chars">Máximo de caracteres</label><input id="max-chars" name="max_characters" type="number" min="300" max="3000" value="2200"></div></div>
+            <label for="author-context">Seu contexto <span class="optional">opcional</span></label>
+            <textarea id="author-context" name="author_context" rows="3" maxlength="2000" placeholder="Sua participação, motivação ou aprendizados reais que queira mencionar"></textarea>
+            <div class="check-row"><input id="confirmed-author" type="checkbox"><label for="confirmed-author">Confirmo que sou autor(a) deste projeto</label></div>
+            <div class="check-row"><input id="hashtags" type="checkbox"><label for="hashtags">Incluir hashtags, se fizer sentido</label></div>
+            <div class="check-row private-row"><input id="private-consent" type="checkbox"><label for="private-consent">Autorizo enviar trechos ao provedor de IA caso o repositório seja privado</label></div>
+            <div class="actions"><button id="analyze-button" type="submit" data-action="analyze">Analisar repositório <span aria-hidden="true">↗</span></button><button id="post-button" class="secondary" type="button">Gerar texto para LinkedIn</button></div>
+          </form>
+          <p class="form-footnote">A análise usa a API local e pode consumir cotas do GitHub e do provedor configurado.</p>
+        </section>
+
+        <section class="panel results-panel" aria-labelledby="results-title">
+          <div class="section-heading"><span class="section-index">02 / RESULTADO</span><h2 id="results-title">O que o código revela</h2><p>Afirmações, fontes e limites da leitura ficam visíveis aqui.</p></div>
+          <div id="notice" class="notice" role="status" aria-live="polite">Preencha a URL para iniciar a análise.</div>
+          <div id="result-content" hidden>
+            <div class="repo-summary"><span class="mini-label">REPOSITÓRIO ANALISADO</span><a id="result-repo" target="_blank" rel="noopener noreferrer"></a><p id="result-purpose"></p><div class="summary-meta"><span id="result-ref"></span><span id="result-commit"></span></div></div>
+            <div class="result-tabs" role="tablist" aria-label="Resultado"><button id="tab-analysis" role="tab" aria-selected="true" aria-controls="analysis-view">Análise</button><button id="tab-post" role="tab" aria-selected="false" aria-controls="post-view">Texto para LinkedIn</button></div>
+            <div id="analysis-view" role="tabpanel" aria-labelledby="tab-analysis"><div class="subheading"><h3>Evidências encontradas</h3><span id="claim-count"></span></div><div id="claims" class="claim-list"></div><details class="coverage"><summary>Cobertura e limitações</summary><div id="coverage-content"></div></details></div>
+            <div id="post-view" role="tabpanel" aria-labelledby="tab-post" hidden><div class="subheading"><h3>Seu texto</h3><span id="post-count"></span></div><p class="review-note">Revise as afirmações antes de publicar. O texto não é enviado ao LinkedIn.</p><div id="post-text" class="post-text"></div><button id="copy-button" class="copy-button" type="button">Copiar texto</button></div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <footer><span>Repository Story</span><span>Uma ferramenta local para apresentar projetos com mais contexto.</span></footer>
+  </div>
+</body>
+</html>

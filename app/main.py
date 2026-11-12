@@ -1,6 +1,7 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field
 from typing import Literal
+from pathlib import Path
 
 from app.repository_tool import GitHubError, LLMError, RepositoryService, parse_repository
 
@@ -52,3 +53,21 @@ async def linkedin(request: PostRequest, svc: RepositoryService = Depends(servic
         raise HTTPException(422, str(exc)) from exc
     except (GitHubError, LLMError) as exc:
         raise HTTPException(getattr(exc, 'status', 502), str(exc)) from exc
+
+
+FRONTEND = Path(__file__).resolve().parent.parent / 'frontend'
+
+
+@app.get('/', include_in_schema=False)
+async def frontend_index():
+    return Response((FRONTEND / 'index.html').read_bytes(), media_type='text/html; charset=utf-8')
+
+
+@app.get('/style.css', include_in_schema=False)
+async def frontend_style():
+    return Response((FRONTEND / 'style.css').read_bytes(), media_type='text/css; charset=utf-8')
+
+
+@app.get('/app.js', include_in_schema=False)
+async def frontend_script():
+    return Response((FRONTEND / 'app.js').read_bytes(), media_type='text/javascript; charset=utf-8')

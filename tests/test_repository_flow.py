@@ -99,3 +99,17 @@ def test_empty_repo_and_invalid_llm_json():
             with pytest.raises(LLMError):
                 await provider.complete('x', PostOutput)
     asyncio.run(run())
+
+
+def test_local_frontend_is_served_with_api():
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+            page = await client.get('/')
+            script = await client.get('/app.js')
+            css = await client.get('/style.css')
+            assert page.status_code == script.status_code == css.status_code == 200
+            assert 'Comece pelo repositório' in page.text
+            assert "fetch(endpoint" in script.text
+            assert '/api/v1/posts/linkedin' in script.text
+            assert (await client.get('/health')).json() == {'status': 'ok'}
+    asyncio.run(run())
