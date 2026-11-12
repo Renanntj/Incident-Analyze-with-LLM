@@ -26,7 +26,7 @@ No fish, use `source .venv/bin/activate.fish`. As dependências e faixas de vers
 
 ## Configuração
 
-Copie `.env.example` para `.env` e configure as variáveis. O aplicativo lê variáveis de ambiente; ele não carrega `.env` automaticamente. No bash:
+Copie `.env.example` para `.env` e configure as variáveis. Ao iniciar, a aplicação carrega automaticamente o arquivo `.env` da raiz do projeto. Variáveis já definidas no processo têm prioridade. Você também pode configurá-las diretamente no bash:
 
 ```bash
 export GEMINI_API_KEY='sua-chave'
@@ -34,7 +34,7 @@ export GEMINI_MODEL='gemini-2.5-flash'
 export GITHUB_TOKEN='seu-token-opcional'
 ```
 
-No fish, use `set -x GEMINI_API_KEY sua-chave`, e o mesmo formato para as outras variáveis. O modelo é configurável; confira a disponibilidade na sua conta. `GITHUB_TOKEN` é opcional para repositórios públicos e necessário para privados autorizados, com permissão de leitura de conteúdo. `.env` está ignorado pelo Git. Não compartilhe tokens em exemplos ou logs.
+No fish, use `set -x GEMINI_API_KEY sua-chave`, e o mesmo formato para as outras variáveis, caso prefira configurá-las no shell. O modelo é configurável; confira a disponibilidade na sua conta. `GITHUB_TOKEN` é opcional para repositórios públicos e necessário para privados autorizados, com permissão de leitura de conteúdo. `.env` está ignorado pelo Git e não é enviado ao repositório. Não compartilhe tokens em exemplos ou logs.
 
 | Variável | Padrão | Unidade / função |
 | --- | ---: | --- |

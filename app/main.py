@@ -2,8 +2,11 @@ from fastapi import Depends, FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field
 from typing import Literal
 from pathlib import Path
+from app.environment import load_environment
 
 from app.repository_tool import GitHubError, LLMError, RepositoryService, parse_repository
+
+load_environment(Path(__file__).resolve().parent.parent / '.env')
 
 app = FastAPI(title='Repository Story', version='0.1.0')
 

@@ -1,10 +1,22 @@
 import pytest
 import base64
 import asyncio
+import os
 import httpx
 
 from app.repository_tool import parse_repository, select_files, redact, GitHubClient, GitHubError, RepositoryService, Settings, Findings, PostOutput, GeminiProvider, LLMError
 from app.main import app, service
+
+
+def test_env_file_loads_without_overriding_process_variables(tmp_path, monkeypatch):
+    from app.environment import load_environment
+    env_file = tmp_path / '.env'
+    env_file.write_text('GEMINI_MODEL=model-from-file\nGITHUB_TOKEN=token-from-file\n')
+    monkeypatch.setenv('GEMINI_MODEL', 'model-from-process')
+    monkeypatch.delenv('GITHUB_TOKEN', raising=False)
+    assert load_environment(env_file) is True
+    assert os.environ['GEMINI_MODEL'] == 'model-from-process'
+    assert os.environ['GITHUB_TOKEN'] == 'token-from-file'
 
 
 def test_url_validation():
